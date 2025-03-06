@@ -1,7 +1,7 @@
 import { ArrowLeft } from "lucide-react";
 import React, { useState } from "react";
 import { useLocation } from "react-router-dom";
-
+import {ethers} from 'ethers';
 const SmartContractForm = () => {
   const [selectedType, setSelectedType] = useState(null);
   const [contractName, setContractName] = useState("");
@@ -10,6 +10,124 @@ const SmartContractForm = () => {
   const [selectedImage, setSelectedImage] = useState(null);
 
   const location = useLocation(); // This gives you the current location (URL)
+
+
+  let signer;
+  let provider;
+  const contractAddress = '0xB136A4aA0334f833C425cba7f05eFE17C85f7d60';
+  const contractABI = [{"inputs":[{"internalType":"address","name":"_collectionImpl","type":"address"},{"internalType":"address","name":"_dropImpl","type":"address"},{"internalType":"address","name":"_marketplace","type":"address"}],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"collection","type":"address"},{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":false,"internalType":"bool","name":"isDrop","type":"bool"}],"name":"CollectionCreated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"newMarketplace","type":"address"}],"name":"MarketplaceUpdated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"previousOwner","type":"address"},{"indexed":true,"internalType":"address","name":"newOwner","type":"address"}],"name":"OwnershipTransferred","type":"event"},{"inputs":[],"name":"collectionImplementation","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"string","name":"name","type":"string"},{"internalType":"string","name":"description","type":"string"},{"internalType":"bool","name":"isDrop","type":"bool"},{"internalType":"uint256","name":"startTime","type":"uint256"}],"name":"createCollection","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"dropImplementation","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"getUserCollections","outputs":[{"internalType":"address[]","name":"","type":"address[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"isCollectionCreatedByUs","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"marketplace","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"renounceOwnership","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_marketplace","type":"address"}],"name":"setMarketplace","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"newOwner","type":"address"}],"name":"transferOwnership","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"userCollections","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"collection","type":"address"}],"name":"verifyCollection","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"}]
+
+  // Sepolia testnet parameters
+  const SEPOLIA_CHAIN_ID = '0xaa36a7'; // 11155111 in hex
+  const SEPOLIA_NETWORK = {
+    chainId: SEPOLIA_CHAIN_ID,
+    chainName: 'Sepolia Test Network',
+    nativeCurrency: {
+      name: 'Sepolia ETH',
+      symbol: 'ETH',
+      decimals: 18
+    },
+    rpcUrls: ['https://rpc.sepolia.org'],
+    blockExplorerUrls: ['https://sepolia.etherscan.io']
+  };
+
+
+  const switchToSepolia = async () => {
+    if (!window.ethereum) {
+      throw new Error('Please install MetaMask');
+    }
+
+    try {
+      // Check current network
+      const currentChainId = await window.ethereum.request({ method: 'eth_chainId' });
+      
+      if (currentChainId !== SEPOLIA_CHAIN_ID) {
+        // Try to switch to Sepolia
+        await window.ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: SEPOLIA_CHAIN_ID }],
+        });
+      }
+    } catch (switchError) {
+      // If Sepolia isn't added to MetaMask, add it
+      if (switchError.code === 4902) {
+        await window.ethereum.request({
+          method: 'wallet_addEthereumChain',
+          params: [SEPOLIA_NETWORK],
+        });
+      } else {
+        throw switchError;
+      }
+    }
+  };
+  const requestAccount = async () => {
+    await window.ethereum.request({ method: 'eth_requestAccounts' });
+  };
+
+  // Function to connect to MetaMask and call createCollection
+  const handleCreateCollection = async () => {
+    if (!window.ethereum) {
+      alert('MetaMask is not installed!');
+      return;
+    }
+
+
+    try {
+      // Connect to MetaMask
+      debugger;
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      await provider.send("eth_requestAccounts", []);
+      const signer = provider.getSigner();
+
+      // Connect to the contract
+      const contract = new ethers.Contract(contractAddress, contractABI, signer);
+
+      // Format startTime to UNIX timestamp if isDrop is true, else set to 0
+      // const formattedStartTime = isDrop
+      //   ? Math.floor(new Date(startTime).getTime() / 1000)
+      //   : 0;
+
+      // console.log('Calling createCollection with:', {
+      //   name,
+      //   description,
+      //   isDrop,
+      //   formattedStartTime
+      // });
+
+      // Call createCollection function
+      const tx = await contract.createCollection(
+        "name",
+        "symbol",
+        true,
+        1741340392
+      );
+
+      console.log('Transaction sent:', tx.hash);
+      // setTransactionHash(tx.hash);
+
+      // Wait for transaction to be mined
+      const receipt = await tx.wait();
+      console.log('Transaction confirmed:', receipt);
+
+      // Extract CollectionCreated event to get the new contract address
+      const collectionCreatedEvent = receipt.events.find(
+        (event) => event.event === 'CollectionCreated'
+      );
+
+      if (collectionCreatedEvent) {
+        const newContractAddress = collectionCreatedEvent.args.collection;
+        // setCreatedContractAddress(newContractAddress);
+        console.log('New contract address:', newContractAddress);
+        alert('Collection created successfully!');
+      } else {
+        console.error('CollectionCreated event not found in receipt.');
+        alert('Collection created, but failed to retrieve contract address.');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert(`Error: ${error.message}`);
+    } 
+  };
 
   // Extract the query parameters from the URL
   const queryParams = new URLSearchParams(location.search);
@@ -193,6 +311,7 @@ const SmartContractForm = () => {
           {/* Submit Button */}
           <div className="text-center">
             <button
+            onClick={handleCreateCollection()}
               type="submit"
               className="bg-blue-900 text-white px-8 py-3 rounded-md hover:bg-blue-800 transition-colors"
             >
