@@ -71,6 +71,7 @@ const SmartContractForm = () => {
       return;
     }
 
+    await switchToSepolia();
 
     try {
       // Connect to MetaMask
